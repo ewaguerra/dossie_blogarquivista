@@ -18,7 +18,7 @@ describe('dossie_arquivo_morto — contrato de pistas', () => {
   });
 
   it('data-clue-id do HTML deve ser subconjunto de pistas.json', () => {
-    const html = readFileSync(join(ROOT, 'arquivo-morto/index.html'), 'utf8');
+    const html = readFileSync(join(ROOT, 'arquivo-morto/posts/registro-001.html'), 'utf8');
     const pistas = JSON.parse(
       readFileSync(join(ROOT, 'arquivo-morto/data/pistas.json'), 'utf8')
     );

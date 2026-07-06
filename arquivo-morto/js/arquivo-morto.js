@@ -2,10 +2,10 @@
   "use strict";
 
   var SURFACE_LINK_DEFAULTS = {
-    centro: "/centro/",
+    centro: "https://dossie-centro.vercel.app/centro/",
     landing: "/landing/",
     "arquivo-morto": "/arquivo-morto/",
-    arquivista: "/arquivista/",
+    arquivista: "https://dossie-arquivomorto.vercel.app/arquivista/",
   };
 
   var surfaceLinks = Object.assign({}, SURFACE_LINK_DEFAULTS);
@@ -93,10 +93,38 @@
     });
   }
 
+  function updateCadernoUi() {
+    const ledger = document.querySelector("[data-clue-ledger]");
+    const hasClues = state.collectedClues.size > 0;
+
+    if (ledger) {
+      ledger.classList.toggle("is-dormant", !hasClues);
+      ledger.classList.toggle("is-active", hasClues);
+    }
+
+    const filtros = document.querySelector(".caderno-filtros");
+    if (filtros) {
+      filtros.hidden = !hasClues;
+    }
+
+    document.querySelectorAll("[data-caderno-hint-dormant]").forEach(function (el) {
+      el.hidden = hasClues;
+    });
+    document.querySelectorAll("[data-caderno-hint-active]").forEach(function (el) {
+      el.hidden = !hasClues;
+    });
+
+    renderClueLedger();
+    updateClueConclusion();
+  }
+
   // ── Carregamento de Dados ─────────────────────────────────────────────
   async function loadClues() {
     try {
-      const response = await fetch('data/pistas.json');
+      const cluesUrl = document.body.classList.contains("arquivo-morto-post")
+        ? "../data/pistas.json"
+        : "data/pistas.json";
+      const response = await fetch(cluesUrl);
       const data = await response.json();
       CLUES = data.reduce((acc, item) => {
         acc[item.id] = item;
@@ -104,8 +132,7 @@
       }, {});
       loadCollectedCluesFromStorage();
       applyCollectedClueUi();
-      renderClueLedger();
-      updateClueConclusion();
+      updateCadernoUi();
     } catch (err) {
       console.error("Erro ao carregar pistas:", err);
     }
@@ -114,13 +141,81 @@
 
   // ── Data dinâmica ────────────────────────────────────────────────────
   function applyDynamicPostDate() {
-    const el = document.querySelector("[data-dynamic-date]");
-    if (!el) return;
-
     const publishedAt = new Date(Date.now() - 60 * 1000);
-    el.textContent = "Publicado há 1 minuto.";
-    el.setAttribute("datetime", publishedAt.toISOString());
-    el.title = publishedAt.toLocaleString("pt-BR");
+    const label = "Publicado há 1 minuto.";
+
+    document.querySelectorAll("[data-dynamic-date]").forEach(function (el) {
+      el.textContent = label;
+      el.setAttribute("datetime", publishedAt.toISOString());
+      el.title = publishedAt.toLocaleString("pt-BR");
+    });
+
+    document.querySelectorAll("[data-post-date]").forEach(function (el) {
+      el.textContent = "há 1 minuto";
+    });
+
+    const syncEl = document.querySelector("[data-blog-sync]");
+    if (syncEl) {
+      syncEl.textContent = "Última sincronização: há 1 minuto";
+    }
+  }
+
+  // ── Blog homepage — interações ARG ───────────────────────────────────
+  function showBlogToast(message) {
+    const toast = document.querySelector("[data-blog-toast]");
+    if (!toast || !message) return;
+
+    toast.textContent = message;
+    toast.hidden = false;
+
+    window.clearTimeout(showBlogToast._timer);
+    showBlogToast._timer = window.setTimeout(function () {
+      toast.hidden = true;
+    }, 4200);
+  }
+
+  function setupBlogHome() {
+    document.querySelectorAll("[data-sealed-post]").forEach(function (card) {
+      card.addEventListener("click", function () {
+        const message = card.getAttribute("data-sealed-message");
+        card.classList.add("is-shake");
+        showBlogToast(message || "Registro indisponível.");
+        window.setTimeout(function () {
+          card.classList.remove("is-shake");
+        }, 320);
+      });
+    });
+
+    const cipher = document.querySelector("[data-encoded-hint]");
+    if (cipher) {
+      const encoded = "bXVzdGFyIG5hbyBvbGhhciBwYXJhIG8gY2V1";
+      cipher.addEventListener("click", function () {
+        const span = cipher.querySelector(".blog-manifesto__cipher");
+        if (!span) return;
+        if (span.classList.contains("is-decoded")) return;
+        try {
+          span.textContent = atob(encoded);
+          span.classList.add("is-decoded");
+        } catch (_err) {
+          span.textContent = "mustar nao olhar para o ceu";
+          span.classList.add("is-decoded");
+        }
+      });
+    }
+
+    const hintBtn = document.querySelector("[data-blog-hint]");
+    if (hintBtn) {
+      hintBtn.addEventListener("click", function () {
+        showBlogToast("Abra um registro e clique nas palavras sublinhadas para consolidar evidências no Caderno.");
+      });
+    }
+
+    const rssBtn = document.querySelector("[data-blog-rss]");
+    if (rssBtn) {
+      rssBtn.addEventListener("click", function () {
+        showBlogToast("Feed RSS simulado. A Comissão intercepta syndication desde 1951.");
+      });
+    }
   }
 
   // ── Palavras-pista ───────────────────────────────────────────────────
@@ -147,8 +242,7 @@
       node.setAttribute("aria-pressed", "true");
     });
 
-    renderClueLedger();
-    updateClueConclusion();
+    updateCadernoUi();
     persistCollectedClues();
   }
 
@@ -161,7 +255,7 @@
     if (!state.collectedClues.size) {
       const empty = document.createElement("li");
       empty.className = "suma-pistas__empty";
-      empty.textContent = "Nenhuma pista consolidada.";
+      empty.textContent = "Nenhuma evidência registrada. Clique nas palavras sublinhadas nos registros.";
       list.appendChild(empty);
       return;
     }
@@ -205,6 +299,7 @@
     const searchInput = document.getElementById('clue-search');
     if (searchInput) {
       searchInput.addEventListener('input', (e) => {
+        if (state.collectedClues.size === 0) return;
         state.searchQuery = e.target.value.toLowerCase();
         renderClueLedger();
       });
@@ -212,6 +307,7 @@
 
     document.querySelectorAll('.filtro-chip').forEach(btn => {
       btn.addEventListener('click', () => {
+        if (state.collectedClues.size === 0) return;
         document.querySelectorAll('.filtro-chip').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         state.activeFilter = btn.dataset.filter;
@@ -226,6 +322,12 @@
     if (!conclusion) return;
 
     const requiredCount = REQUIRED_CLUES.filter((id) => state.collectedClues.has(id)).length;
+
+    if (requiredCount < 3) {
+      conclusion.hidden = true;
+      conclusion.replaceChildren();
+      return;
+    }
 
     if (requiredCount >= 3 && requiredCount < REQUIRED_CLUES.length) {
       conclusion.hidden = false;
@@ -412,11 +514,23 @@
     initSurfaceLinks();
     await loadClues();
     applyDynamicPostDate();
-    setupClueWords();
+
+    if (document.body.classList.contains("arquivo-morto-blog")) {
+      setupBlogHome();
+    }
+
+    if (document.querySelector("[data-clue-id]")) {
+      setupClueWords();
+    }
+
     setupFiltros();
     setupRotasVerticais();
     setupYoutubeAnexo();
-    setupEndOfPostGlitch();
+
+    if (document.querySelector(".registro-post")) {
+      setupEndOfPostGlitch();
+    }
+
     setupScrollAnimations();
   }
 

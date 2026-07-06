@@ -68,8 +68,14 @@ describe('dossie_arquivo_morto — HTTP', () => {
   it('deve responder 200 em /arquivo-morto/', async () => {
     const res = await fetchPath('/arquivo-morto/index.html');
     assert.strictEqual(res.status, 200);
-    assert.ok(res.body.includes('data-clue-id'), 'HTML deve conter pistas clicáveis');
+    assert.ok(res.body.includes('blog-masthead'), 'HTML deve ser a homepage do blog');
     assert.ok(res.body.includes('data-surface-link'), 'HTML deve ter links configuráveis');
+  });
+
+  it('deve responder 200 em /arquivo-morto/posts/registro-001.html', async () => {
+    const res = await fetchPath('/arquivo-morto/posts/registro-001.html');
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.body.includes('data-clue-id'), 'post deve conter pistas clicáveis');
   });
 
   it('deve responder 200 em /arquivo-morto/js/arquivo-morto.js', async () => {
